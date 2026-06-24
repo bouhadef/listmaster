@@ -486,6 +486,24 @@ table.grid tbody tr.alt { background: var(--row-alt); }
   .page-wrap { padding: 16px 14px 80px; }
 }
 
+/* ── الهواتف (≤640px) ─────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .navbar { padding: 0 12px; gap: 8px; }
+  .nav-divider { display: none; }
+  .brand-sub { display: none; }                 /* العنوان الفرعي مكرّر */
+  .brand-mark { width: 38px; height: 38px; border-radius: 10px; }
+  .brand-mark svg { width: 20px; height: 20px; }
+  .user-chip { display: none; }                 /* «المؤسسة» تظهر في الخطوة 2، وقد تتضخّم باسم طويل */
+  .theme-btn { padding: 0 10px; }
+
+  /* شريط الخطوات: أصغر وأكثف ليظهر أكبر عدد منها (يبقى قابلاً للتمرير) */
+  .stepbar { padding: 0 12px; }
+  .step-btn { padding: 12px 10px; gap: 6px; font-size: 12px; }
+  .step-num { width: 22px; height: 22px; }
+
+  .page-wrap { padding: 14px 12px 80px; }
+}
+
 /* ═══ PRINT — القوائم الاسمية A4 ═══════════════════════════════════════════ */
 .print-only { display: none; }
 @media print {

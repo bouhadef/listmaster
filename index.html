@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════
+  ListMaster AI — مساعد تحضير قوائم التسجيل
+  Copyright © 2026 بوحادف (bouhadef) — All Rights Reserved
+  Contact: bouhadef.06@gmail.com
+
+  PROPRIETARY SOFTWARE — UNAUTHORIZED COPYING, MODIFICATION,
+  DISTRIBUTION, OR REVERSE ENGINEERING IS STRICTLY PROHIBITED.
+
+  هذا البرنامج ملكيّة فكريّة محفوظة — أيّ نسخ أو تعديل أو توزيع
+  أو هندسة عكسيّة غير مرخّص يُعدّ انتهاكاً قانونياً بموجب القانون
+  الجزائري 03-05 والمعاهدات الدوليّة.
+  ════════════════════════════════════════════════════════════════
+-->
+<html lang="ar" dir="rtl" data-theme="national">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مساعد تحضير قوائم التسجيل — ListMaster AI</title>
+
+  <meta name="author" content="بوحادف (bouhadef)">
+  <meta name="copyright" content="© 2026 bouhadef — All Rights Reserved">
+  <meta name="description" content="منصّة تكوين أقسام السنة القادمة وتوزيع التلاميذ عليها — معالجة محلية بالكامل في المتصفح">
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- Google Fonts: Cairo -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ['Cairo', 'sans-serif'] } } } };
+  </script>
+
+  <!-- Design System -->
+  <link rel="stylesheet" href="design-system.css?v=9">
+
+  <!-- SheetJS — قراءة/كتابة Excel (بدون أداة تجميع) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+  <!-- React 18 & ReactDOM 18 (UMD) -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Babel Standalone — JSX في المتصفح. مثبّت على 7.x عمداً (8.x يفعّل           -->
+  <!-- automatic runtime الذي يحقن import غير قابل للحلّ بدون bundler → شاشة بيضاء). -->
+  <script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
+
+  <!-- ── بوابة الدخول إلى النموذج (حماية من جهة المتصفح) ──────────────────── -->
+  <style id="gate-style">
+    #root { display: none; }
+    body.authed #root { display: block; }
+    body.authed #gate { display: none; }
+
+    #gate {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at 50% 28%, #103f33, #08231c 72%);
+      font-family: 'Cairo', sans-serif; padding: 20px;
+    }
+    .gate-card {
+      width: 100%; max-width: 380px; background: #fff; border-radius: 22px;
+      padding: 38px 30px 30px; box-shadow: 0 24px 70px rgba(0,0,0,.4);
+      text-align: center; animation: gate-in .45s cubic-bezier(.2,.8,.2,1);
+    }
+    @keyframes gate-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+    .gate-logo {
+      width: 66px; height: 66px; margin: 0 auto 18px; border-radius: 19px;
+      background: linear-gradient(135deg, #0a4a3b, #0d5f4c);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 26px; font-weight: 800; letter-spacing: 1px;
+      box-shadow: 0 8px 20px rgba(10,74,59,.35);
+    }
+    .gate-card h1 { font-size: 21px; font-weight: 800; color: #0a4a3b; margin: 0 0 6px; }
+    .gate-card p  { font-size: 13px; color: #5b6b66; margin: 0 0 24px; line-height: 1.6; }
+    .gate-field   { margin-bottom: 14px; }
+    .gate-field input {
+      width: 100%; padding: 14px 16px; border: 1.5px solid #d6e3dd; border-radius: 13px;
+      font-family: inherit; font-size: 16px; text-align: center; letter-spacing: 3px;
+      background: #f7faf8; box-sizing: border-box; transition: border-color .15s, box-shadow .15s, background .15s;
+    }
+    .gate-field input:focus { outline: none; border-color: #0a4a3b; box-shadow: 0 0 0 3px rgba(10,74,59,.13); background: #fff; }
+    .gate-btn {
+      width: 100%; padding: 14px; border: none; border-radius: 13px; cursor: pointer;
+      background: linear-gradient(135deg, #0a4a3b, #0d5f4c); color: #fff;
+      font-family: inherit; font-size: 15px; font-weight: 700; transition: transform .1s, opacity .15s;
+    }
+    .gate-btn:hover  { opacity: .94; }
+    .gate-btn:active { transform: scale(.98); }
+    .gate-err  { color: #c0392b; font-size: 13px; font-weight: 600; margin-top: 13px; min-height: 18px; }
+    .gate-foot { margin-top: 22px; font-size: 11px; color: #9aa8a3; }
+    @keyframes gate-shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
+    .gate-shake { animation: gate-shake .4s; }
+  </style>
+</head>
+<body>
+  <!-- ── بوابة الدخول ───────────────────────────────────────────────── -->
+  <div id="gate">
+    <form class="gate-card" id="gate-form" autocomplete="off">
+      <div class="gate-logo">LM</div>
+      <h1>ListMaster AI</h1>
+      <p>نموذج تجريبي محميّ<br>أدخل كلمة المرور للمتابعة</p>
+      <div class="gate-field">
+        <input type="password" id="gate-pass" inputmode="text" placeholder="••••••" autocomplete="off" autofocus>
+      </div>
+      <button type="submit" class="gate-btn">دخول</button>
+      <div class="gate-err" id="gate-err"></div>
+      <div class="gate-foot">© 2026 بوحادف — جميع الحقوق محفوظة</div>
+    </form>
+  </div>
+  <script>
+    /* بوّابة كلمة المرور — تحقّق من جهة المتصفح عبر بصمة SHA-256 (لا نصّ صريح). */
+    (function () {
+      var HASH = '9e2e43448f6eb0b8fb4f51ad468bd1c7d46febf96689200fbe50757619feaa08';
+      var KEY  = 'lm_gate_ok';
+      function unlock() { document.body.classList.add('authed'); }
+      if (sessionStorage.getItem(KEY) === HASH) { unlock(); }
+
+      async function sha256(text) {
+        var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+        return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+      }
+
+      var form = document.getElementById('gate-form'),
+          pass = document.getElementById('gate-pass'),
+          err  = document.getElementById('gate-err');
+
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        err.textContent = '';
+        var h = await sha256((pass.value || '').trim());
+        if (h === HASH) {
+          sessionStorage.setItem(KEY, HASH);
+          unlock();
+        } else {
+          err.textContent = 'كلمة المرور غير صحيحة';
+          form.classList.remove('gate-shake'); void form.offsetWidth; form.classList.add('gate-shake');
+          pass.value = ''; pass.focus();
+        }
+      });
+    })();
+  </script>
+
+  <div id="root"></div>
+
+  <!-- ── النواة (ترتيب التحميل مهم: التبعيات أولاً) ───────────────────── -->
+  <script src="js/utils.js?v=9" type="text/babel" data-type="module"></script>
+  <script src="js/icons.js?v=9" type="text/babel" data-type="module"></script>
+  <script src="js/store.js?v=9" type="text/babel" data-type="module"></script>
+  <script src="js/distribution.js?v=9" type="text/babel" data-type="module"></script>
+  <script src="js/excel.js?v=9" type="text/babel" data-type="module"></script>
+  <script src="js/components.js?v=9" type="text/babel" data-type="module"></script>
+
+  <!-- ── الخطوات الخمس ──────────────────────────────────────────────── -->
+  <script src="js/steps/Step1_Import.js?v=9" type="text/babel" data-type="module"></script>
+  <script src="js/steps/Step2_Setup.js?v=9" type="text/babel" data-type="module"></script>
+  <script src="js/steps/Step3_Distribute.js?v=9" type="text/babel" data-type="module"></script>
+  <script src="js/steps/Step4_Review.js?v=9" type="text/babel" data-type="module"></script>
+  <script src="js/steps/Step5_Export.js?v=9" type="text/babel" data-type="module"></script>
+
+  <!-- ── الجذر ──────────────────────────────────────────────────────── -->
+  <script src="js/App.js?v=9" type="text/babel" data-type="module"></script>
+</body>
+</html>

@@ -82,6 +82,7 @@
                   {fields.filter(f => map[f.key] != null && map[f.key] >= 0).map(f => {
                     const v = row[map[f.key]];
                     let disp = v == null ? '' : String(v);
+                    if (f.key === 'birthDate') disp = U.fmtDate(v) || disp; // تنسيق التاريخ (SheetJS قد يُرجع كائن Date خام)
                     if (f.key === 'decision') disp = `${disp} → ${U.DECISION_LABEL[U.parseDecision(v)]}`;
                     if (f.key === 'proposal') disp = `${disp} → ${/يعيد/.test(U.normalizeArabic(v)) ? 'معيد' : 'يغادر'}`;
                     if (f.key === 'gender') { const g = U.parseGender(v); disp = g ? `${disp} → ${U.GENDER_LABEL[g]}` : disp; }

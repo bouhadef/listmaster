@@ -4,6 +4,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 (function () {
+  const { useState, useMemo } = React;
   const { Card, Field, Btn, MiniBtn, InfoBanner, Segmented, Toggle, Badge, StatCard, EmptyState } = window.UI;
   const U = window.U, Icons = window.Icons;
 
@@ -16,6 +17,101 @@
     const originSections = new Set(cohort.map(s => s.section));
     const st = U.statsOf(pool);
     return { pool, cohort, repeaters, newcomers, originCount: originSections.size, st };
+  }
+
+  // قائمة تلاميذ مدمجة (اسم + قسم + معدّل) مع حدّ أعلى للعرض
+  function StudentChips({ items, max = 80 }) {
+    const shown = items.slice(0, max);
+    const rest = items.length - shown.length;
+    return (
+      <div className="chip-row" style={{ marginTop: 6 }}>
+        {shown.map((x, i) => (
+          <span key={i} className="tchip" style={{ height: 'auto', padding: '5px 10px', cursor: 'default', gap: 7 }}>
+            <span style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>{x.name}</span>
+            {x.cls && x.cls !== '—' && <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--primary)' }}>{x.cls}</span>}
+            {typeof x.average === 'number' && <span style={{ fontSize: 11, fontWeight: 800, color: x.average < 10 ? 'var(--danger)' : 'var(--text-muted)' }}>{U.fmtAvg(x.average)}</span>}
+          </span>
+        ))}
+        {rest > 0 && <span className="tchip" style={{ height: 'auto', padding: '5px 10px', cursor: 'default', color: 'var(--text-muted)', fontWeight: 700 }}>+{rest} آخرين…</span>}
+      </div>
+    );
+  }
+
+  // لوحة فحص جودة البيانات — تنبّه المستخدم إلى الخلل المحتمل في ملفّاته
+  function DataQualityCard({ state }) {
+    const audit = useMemo(() => window.Validation.audit(state), [state.students, state.imports, state.columnMap]);
+    const [open, setOpen] = useState('A');
+    if (!audit.hasDecisionsFile) return null;
+
+    if (audit.ok) {
+      return (
+        <InfoBanner kind="success" icon="checkCircle" title="فحص جودة البيانات: لا خلل">
+          كل تلاميذ ملف التوزيع لهم قرار مطابق، ولا أرقام تعريف مكرّرة أو زائدة في ملف القرارات. ✓
+        </InfoBanner>
+      );
+    }
+
+    const eff = (open === 'A' && !audit.noDecision.length) ? (audit.duplicateDecisions.length ? 'C' : 'B') : open;
+    const toggle = (k) => setOpen(eff === k ? null : k);
+    const section = ({ k, tone, icon, title, count, hint, children }) => {
+      const Ico = Icons[icon];
+      const Chev = eff === k ? Icons.chevDown : Icons.chevRight;
+      return (
+        <div key={k} style={{ border: '1px solid var(--border)', borderRadius: 10, marginBottom: 10, overflow: 'hidden' }}>
+          <button onClick={() => toggle(k)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', background: 'var(--bg-surface)', border: 'none', cursor: 'pointer', textAlign: 'start', fontFamily: 'inherit' }}>
+            <span style={{ color: `var(--${tone})`, display: 'flex' }}><Ico size={18} /></span>
+            <span style={{ flex: 1, fontWeight: 800, fontSize: 13.5, color: 'var(--text)' }}>{title}</span>
+            <Badge tone={tone}>{count}</Badge>
+            <span style={{ color: 'var(--text-dim)', display: 'flex' }}><Chev size={16} /></span>
+          </button>
+          {eff === k && (
+            <div style={{ padding: '4px 14px 14px' }}>
+              {hint && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 8px', lineHeight: 1.6 }}>{hint}</p>}
+              {children}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    return (
+      <Card icon="alert" title="فحص جودة البيانات" sub="خلل محتمل في ملفّاتك — راجِعه قبل التوزيع"
+        meta={<Badge tone="warning">{audit.issues} ملاحظة</Badge>}>
+        <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '0 0 14px', lineHeight: 1.7 }}>
+          هذه تنبيهات حول <strong>ملفّاتك المستورَدة</strong> (وليست أخطاء في البرنامج). صحّح الملف المعنيّ ثم أعِد استيراده لتختفي الملاحظة.
+        </p>
+
+        {audit.noDecision.length > 0 && section({
+          k: 'A', tone: 'danger', icon: 'user', count: `${audit.noDecision.length} تلميذ`,
+          title: 'تلاميذ بلا قرار / معدّل',
+          hint: `موجودون في ملف التوزيع لكن لا سطر لهم في ملف القرارات (رقم تعريف غير متطابق أو قسم غائب كليًّا) — سيظهرون بلا معدّل «—». يُعامَلون حاليًا كـ«${state.config.unknownPolicy === 'pass' ? 'ناجحين (ينتقلون)' : 'مستبعَدين'}» (تُغيَّر من «معيار التوزيع» أدناه).`,
+          children: audit.noDecisionClasses.map(c => (
+            <div key={c.cls} style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 800, fontSize: 13, color: 'var(--text)' }}>{c.cls}</span>
+                <Badge tone={c.whole ? 'danger' : 'neutral'}>{c.count} تلميذ</Badge>
+                {c.whole && <Badge tone="danger">⚠ القسم بأكمله غائب عن ملف القرارات</Badge>}
+              </div>
+              <StudentChips items={c.students} />
+            </div>
+          )),
+        })}
+
+        {audit.duplicateDecisions.length > 0 && section({
+          k: 'C', tone: 'gold', icon: 'refresh', count: `${audit.duplicateDecisions.length} مكرّر`,
+          title: 'أرقام تعريف مكرّرة في ملف القرارات',
+          hint: 'نفس رقم التعريف ورد أكثر من مرّة — غالبًا بسبب نسخ ورقة قسم مرّتين، ممّا قد يُزيح ترقيم الأقسام ويُسقِط قسمًا.',
+          children: <StudentChips items={audit.duplicateDecisions.map(d => ({ name: d.name, cls: `مكرّر ×${d.count}` }))} />,
+        })}
+
+        {audit.orphanDecisions.length > 0 && section({
+          k: 'B', tone: 'warning', icon: 'users', count: `${audit.orphanDecisions.length} تلميذ`,
+          title: 'تلاميذ في ملف القرارات غير موجودين في ملف التوزيع',
+          hint: 'لهم قرار/معدّل لكنهم غائبون عن ملف التوزيع (Eleve) — قد يكونون غادروا المؤسسة، أو رقم تعريفهم مختلف بين الملفّين.',
+          children: <StudentChips items={audit.orphanDecisions} />,
+        })}
+      </Card>
+    );
   }
 
   window.Step2 = function Step2() {
@@ -31,7 +127,6 @@
 
     const leaving = students.filter(s => s.decision === 'leave').length;
     const grade4Secondary = students.filter(s => s.grade === 4 && s.decision === 'leave').length;
-    const unmatched = students.filter(s => s.unmatched).length;
     const totalNext = students.filter(s => s.nextGrade != null).length;
 
     const applySuggestion = () => {
@@ -41,16 +136,14 @@
 
     return (
       <div>
+        <DataQualityCard state={state} />
+
         <div className="stat-grid">
           <StatCard icon="users" value={totalNext} label="إجمالي تلاميذ السنة القادمة" />
           <StatCard kind="info" icon="school" value={students.filter(s => s.source === 'newcomers').length} label="منتقلون من الابتدائية" />
           <StatCard kind="gold" icon="refresh" value={students.filter(s => s.repeating).length} label="المعيدون" />
           <StatCard kind="accent" icon="arrowLeft" value={leaving} label="مغادرون / موجّهون" sub={`${grade4Secondary} من 4م نحو الثانوي`} />
         </div>
-
-        {unmatched > 0 && <InfoBanner kind="warn" icon="alert" title={`${unmatched} تلميذًا في ملف التوزيع بلا قرار مطابق في ملف مجلس القسم`}>
-          غالبًا اختلاف بين الملفين في رقم التعريف. يُعامَلون حاليًا حسب: «<strong>{state.config.unknownPolicy === 'pass' ? 'اعتبارهم ناجحين (ينتقلون)' : 'استبعادهم'}</strong>» — غيّرها من بطاقة «معيار التوزيع» أدناه.
-        </InfoBanner>}
 
         <Card num="1" title="معيار التوزيع" icon="settings">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
